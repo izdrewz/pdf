@@ -12,72 +12,36 @@
   const originalViewer = $("originalViewer");
   const matchesList = $("matchesList");
 
-  function readDismissed() {
-    try { return JSON.parse(localStorage.getItem(DISMISS_KEY)) || []; }
-    catch { return []; }
-  }
-  function writeDismissed(list) {
-    localStorage.setItem(DISMISS_KEY, JSON.stringify([...new Set(list)]));
-  }
-  function signatureFor(el) {
-    return `${el.dataset.page || ""}|${el.dataset.index || ""}|${String(el.textContent || "image/design").trim().slice(0, 100)}`;
-  }
-  function rectsIntersect(a, b) {
-    return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
-  }
+  function readDismissed() { try { return JSON.parse(localStorage.getItem(DISMISS_KEY)) || []; } catch { return []; } }
+  function writeDismissed(list) { localStorage.setItem(DISMISS_KEY, JSON.stringify([...new Set(list)])); }
+  function signatureFor(el) { return `${el.dataset.page || ""}|${el.dataset.index || ""}|${String(el.textContent || "image/design").trim().slice(0, 100)}`; }
+  function rectsIntersect(a, b) { return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom); }
   function pagePoint(event, page) {
     const rect = page.getBoundingClientRect();
-    return {
-      x: event.clientX - rect.left + page.scrollLeft,
-      y: event.clientY - rect.top + page.scrollTop
-    };
+    return { x: event.clientX - rect.left + page.scrollLeft, y: event.clientY - rect.top + page.scrollTop };
   }
 
-  function injectToolPanel() {
-    if ($("upgradeToolPanel")) return;
-    const tools = document.querySelector(".tools-panel");
-    if (!tools) return;
-    const panel = document.createElement("section");
-    panel.id = "upgradeToolPanel";
-    panel.className = "panel upgrade-tool-panel";
-    panel.innerHTML = `
-      <p class="eyebrow">Area tools</p>
-      <h2>Lasso, dismiss, and move</h2>
-      <p class="hint">Use lasso to select an area on the editable page. Delete covers the area with a white block and removes selected text. Move only changes vertical position.</p>
-      <div class="pattern-actions upgrade-actions">
-        <button id="toggleLasso" class="ghost" type="button">Lasso off</button>
-        <button id="deleteLassoArea" class="danger" type="button">Delete lasso area</button>
-        <button id="markLassoImage" class="ghost" type="button">Mark lasso as image/art</button>
-        <button id="moveLassoUp" class="ghost" type="button">Move up</button>
-        <button id="moveLassoDown" class="ghost" type="button">Move down</button>
-        <button id="dismissSelectedMatch" class="ghost" type="button">Dismiss match</button>
-        <button id="clearLasso" class="ghost" type="button">Clear lasso</button>
-      </div>
-      <label class="switch"><input id="showPageBackground" type="checkbox" checked> Carry rendered PDF page/image background</label>
-      <label class="switch"><input id="coverBackgroundText" type="checkbox" checked> Cover background under editable text</label>
-      <label class="switch"><input id="strongPageBackground" type="checkbox"> Stronger background</label>
-    `;
-    tools.insertBefore(panel, tools.children[2] || null);
-
-    $("toggleLasso").addEventListener("click", () => {
+  function bindControls() {
+    $("toggleLasso")?.addEventListener("click", () => {
       lassoMode = !lassoMode;
       $("toggleLasso").textContent = lassoMode ? "Lasso on" : "Lasso off";
-      editableViewer.classList.toggle("lasso-mode", lassoMode);
+      editableViewer?.classList.toggle("lasso-mode", lassoMode);
     });
-    $("deleteLassoArea").addEventListener("click", deleteLassoArea);
-    $("markLassoImage").addEventListener("click", markLassoAsImage);
-    $("moveLassoUp").addEventListener("click", () => moveSelection(-18));
-    $("moveLassoDown").addEventListener("click", () => moveSelection(18));
-    $("dismissSelectedMatch").addEventListener("click", dismissSelectedMatch);
-    $("clearLasso").addEventListener("click", clearLasso);
-    $("showPageBackground").addEventListener("change", event => {
+    $("deleteLassoArea")?.addEventListener("click", deleteLassoArea);
+    $("markLassoImage")?.addEventListener("click", markLassoAsImage);
+    $("deleteSelectedVisual")?.addEventListener("click", deleteSelectedVisual);
+    $("moveLassoUp")?.addEventListener("click", () => moveSelection(-18));
+    $("moveLassoDown")?.addEventListener("click", () => moveSelection(18));
+    $("dismissSelectedMatch")?.addEventListener("click", dismissSelectedMatch);
+    $("clearLasso")?.addEventListener("click", clearLasso);
+    $("showPageBackground")?.addEventListener("change", event => {
       document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("hide-rendered-background", !event.target.checked));
     });
-    $("coverBackgroundText").addEventListener("change", event => {
+    $("coverBackgroundText")?.addEventListener("change", event => {
       document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("cover-background-text", event.target.checked));
     });
-    $("strongPageBackground").addEventListener("change", event => {
-      document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("strong-rendered-background", event.target.checked));
+    $("showImageAreas")?.addEventListener("change", event => {
+      document.body.classList.toggle("hide-image-areas", !event.target.checked);
     });
   }
 
@@ -96,11 +60,8 @@
         }
         page.classList.add("with-rendered-background");
         page.classList.toggle("cover-background-text", $("coverBackgroundText") ? $("coverBackgroundText").checked : true);
-        if ($("showPageBackground") && !$("showPageBackground").checked) page.classList.add("hide-rendered-background");
-        if ($("strongPageBackground")?.checked) page.classList.add("strong-rendered-background");
-      } catch (error) {
-        console.info("Could not copy rendered background", error);
-      }
+        page.classList.toggle("hide-rendered-background", $("showPageBackground") ? !$("showPageBackground").checked : false);
+      } catch (error) { console.info("Could not copy rendered background", error); }
     });
   }
 
@@ -125,16 +86,17 @@
       const hidden = dismissed.some(sig => sig.startsWith(`${page}|`) && sig.includes(strong.replace("…", "").slice(0, 30)));
       if (hidden) card.remove();
     });
-    if (!matchesList.querySelector(".match-card") && !matchesList.classList.contains("empty-box")) {
-      matchesList.className = "matches-list empty-box";
-      matchesList.textContent = "No matches for this group.";
-    }
   }
 
   function bindSelectionTracking() {
     document.addEventListener("click", event => {
-      const el = event.target.closest?.(".text-item,.image-item,.inserted-block");
-      if (el) currentSelected = el;
+      const el = event.target.closest?.(".text-item,.image-item,.inserted-block,.redaction-box");
+      if (!el) return;
+      currentSelected = el;
+      document.querySelectorAll(".selected").forEach(x => x.classList.remove("selected"));
+      el.classList.add("selected");
+      const info = $("selectedInfo");
+      if (info) info.textContent = `${el.classList.contains("image-item") ? "Image/art area" : "Selected item"} on page ${el.dataset.page || el.closest(".edit-page")?.dataset.page || ""}.`;
     }, true);
   }
 
@@ -143,7 +105,7 @@
       if (!lassoMode) return;
       const page = event.target.closest(".edit-page");
       if (!page) return;
-      if (event.target.closest(".text-item,.inserted-block,button,summary")) return;
+      if (event.target.closest(".text-item,.inserted-block,button,summary,.image-item")) return;
       event.preventDefault();
       activePage = page;
       lassoStart = pagePoint(event, page);
@@ -157,7 +119,6 @@
       page.querySelector(".page-content")?.appendChild(lassoBox);
       page.setPointerCapture?.(event.pointerId);
     });
-
     editableViewer?.addEventListener("pointermove", event => {
       if (!lassoMode || !lassoBox || !activePage || !lassoStart) return;
       const point = pagePoint(event, activePage);
@@ -167,7 +128,6 @@
       const height = Math.abs(point.y - lassoStart.y);
       Object.assign(lassoBox.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
     });
-
     editableViewer?.addEventListener("pointerup", event => {
       if (!lassoMode || !lassoBox || !activePage) return;
       event.preventDefault();
@@ -181,10 +141,7 @@
   function selectInsideLasso(page, box) {
     document.querySelectorAll(".lasso-selected").forEach(el => el.classList.remove("lasso-selected"));
     const boxRect = box.getBoundingClientRect();
-    lassoSelection = [...page.querySelectorAll(".text-item,.image-item,.inserted-block")].filter(el => {
-      if (el.classList.contains("deleted")) return false;
-      return rectsIntersect(boxRect, el.getBoundingClientRect());
-    });
+    lassoSelection = [...page.querySelectorAll(".text-item,.image-item,.inserted-block")].filter(el => !el.classList.contains("deleted") && rectsIntersect(boxRect, el.getBoundingClientRect()));
     lassoSelection.forEach(el => el.classList.add("lasso-selected"));
     const info = $("selectedInfo");
     if (info) info.textContent = `Lasso selected ${lassoSelection.length} item(s) on page ${page.dataset.page}.`;
@@ -197,48 +154,62 @@
     lassoSelection = [];
   }
 
-  function deleteLassoArea() {
-    if (!lassoBox) return alert("Draw a lasso area first.");
-    const pageContent = lassoBox.closest(".page-content");
+  function makeRedactionFromBox(box) {
+    const page = box.closest(".edit-page");
+    const pageContent = box.closest(".page-content");
     const redaction = document.createElement("div");
     redaction.className = "redaction-box";
-    redaction.style.left = lassoBox.style.left;
-    redaction.style.top = lassoBox.style.top;
-    redaction.style.width = lassoBox.style.width;
-    redaction.style.height = lassoBox.style.height;
+    redaction.dataset.page = page?.dataset.page || "";
+    redaction.style.left = box.style.left;
+    redaction.style.top = box.style.top;
+    redaction.style.width = box.style.width;
+    redaction.style.height = box.style.height;
     pageContent?.appendChild(redaction);
+    return redaction;
+  }
+
+  function deleteLassoArea() {
+    if (!lassoBox) return alert("Turn Lasso on, drag a box around the area, then click this.");
+    makeRedactionFromBox(lassoBox);
     lassoSelection.forEach(el => el.classList.add("deleted"));
-    lassoBox.remove();
-    lassoBox = null;
-    lassoSelection = [];
+    clearLasso();
   }
 
   function markLassoAsImage() {
-    if (!lassoBox) return alert("Draw a lasso around the image/art area first.");
+    if (!lassoBox) return alert("Turn Lasso on and drag around the image/art area first.");
     const page = lassoBox.closest(".edit-page");
     const pageContent = lassoBox.closest(".page-content");
-    if (!page || !pageContent) return;
     const marker = document.createElement("div");
     marker.className = "image-item manual-image-area";
-    marker.dataset.page = page.dataset.page || "";
+    marker.dataset.page = page?.dataset.page || "";
     marker.dataset.index = `manual-image-${Date.now()}`;
     marker.textContent = "image/art area";
     marker.style.left = lassoBox.style.left;
     marker.style.top = lassoBox.style.top;
     marker.style.width = lassoBox.style.width;
     marker.style.height = lassoBox.style.height;
-    marker.addEventListener("click", event => {
-      event.stopPropagation();
-      currentSelected = marker;
-      document.querySelectorAll(".selected").forEach(el => el.classList.remove("selected"));
-      marker.classList.add("selected");
-      const info = $("selectedInfo");
-      if (info) info.textContent = `Manual image/art area on page ${marker.dataset.page}.`;
-    });
-    pageContent.appendChild(marker);
+    pageContent?.appendChild(marker);
     currentSelected = marker;
     clearLasso();
-    document.getElementById("rescanPatterns")?.click();
+    document.querySelectorAll(".selected").forEach(x => x.classList.remove("selected"));
+    marker.classList.add("selected");
+    $("rescanPatterns")?.click();
+  }
+
+  function deleteSelectedVisual() {
+    const target = currentSelected || document.querySelector(".selected");
+    if (!target || (!target.classList.contains("image-item") && !target.classList.contains("redaction-box"))) {
+      return alert("Click a marked image/art area first, or lasso an area and mark it as image/art.");
+    }
+    const redaction = document.createElement("div");
+    redaction.className = "redaction-box";
+    redaction.dataset.page = target.dataset.page || target.closest(".edit-page")?.dataset.page || "";
+    redaction.style.left = target.style.left;
+    redaction.style.top = target.style.top;
+    redaction.style.width = target.style.width;
+    redaction.style.height = target.style.height;
+    target.closest(".page-content")?.appendChild(redaction);
+    target.classList.add("deleted");
   }
 
   function moveSelection(deltaY) {
@@ -248,7 +219,6 @@
       if (!el.classList.contains("text-item") && !el.classList.contains("inserted-block")) return;
       const currentTop = parseFloat(el.style.top || "0");
       el.style.top = `${currentTop + deltaY}px`;
-      el.dataset.movedVerticalOnly = "true";
     });
   }
 
@@ -265,16 +235,12 @@
   }
 
   function init() {
-    injectToolPanel();
+    bindControls();
     bindSelectionTracking();
     bindLasso();
     addRenderedBackgrounds();
     applyDismissedMatches();
-    new MutationObserver(() => {
-      injectToolPanel();
-      addRenderedBackgrounds();
-      applyDismissedMatches();
-    }).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(() => { addRenderedBackgrounds(); applyDismissedMatches(); }).observe(document.body, { childList: true, subtree: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
