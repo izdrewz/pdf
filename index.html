@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Split Cleaner</title>
   <meta name="description" content="Side-by-side PDF viewer and editable reproduction cleaner for study PDFs.">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
   <header class="app-header">
@@ -49,6 +49,22 @@
         <label class="switch"><input id="showPageBackground" type="checkbox" checked> Show PDF page as background</label>
         <label class="switch"><input id="coverBackgroundText" type="checkbox" checked> Cover background under editable text</label>
         <label class="switch"><input id="showImageAreas" type="checkbox" checked> Show clickable image/art areas</label>
+      </section>
+
+      <section class="panel zoom-tool-panel">
+        <p class="eyebrow">Zoom</p>
+        <h2>Original + editable</h2>
+        <p class="hint">Zoom both pages together, or adjust each side separately.</p>
+        <div class="zoom-grid">
+          <button id="zoomBothOut" class="ghost" type="button">Both −</button>
+          <button id="zoomBothIn" class="ghost" type="button">Both +</button>
+          <button id="zoomOriginalOut" class="ghost" type="button">Original −</button>
+          <button id="zoomOriginalIn" class="ghost" type="button">Original +</button>
+          <button id="zoomEditableOut" class="ghost" type="button">Editable −</button>
+          <button id="zoomEditableIn" class="ghost" type="button">Editable +</button>
+          <button id="zoomReset" class="ghost" type="button">Reset zoom</button>
+        </div>
+        <p id="zoomStatus" class="hint">Zoom: 100%</p>
       </section>
 
       <section class="panel">
@@ -121,8 +137,8 @@
   </template>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=6"></script>
-  <script src="pdf-presets.js?v=6"></script>
-  <script src="pdf-upgrade-tools.js?v=6"></script>
+  <script src="app.js?v=7"></script>
+  <script src="pdf-presets.js?v=7"></script>
+  <script src="pdf-upgrade-tools.js?v=7"></script>
 </body>
 </html>
