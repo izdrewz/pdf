@@ -1,4 +1,7 @@
 (() => {
+  if (window.__pdfUpgradeToolsV6Loaded) return;
+  window.__pdfUpgradeToolsV6Loaded = true;
+
   const DISMISS_KEY = "pdf-cleaner-dismissed-matches-v1";
   let lassoMode = false;
   let lassoBox = null;
@@ -20,28 +23,63 @@
     const rect = page.getBoundingClientRect();
     return { x: event.clientX - rect.left + page.scrollLeft, y: event.clientY - rect.top + page.scrollTop };
   }
+  function setLassoMode(next) {
+    lassoMode = next;
+    const button = $("toggleLasso");
+    if (button) {
+      button.textContent = "Lasso";
+      button.setAttribute("aria-pressed", String(lassoMode));
+      button.classList.toggle("active", lassoMode);
+    }
+    editableViewer?.classList.toggle("lasso-mode", lassoMode);
+    if (!lassoMode) clearLasso();
+  }
 
   function bindControls() {
-    $("toggleLasso")?.addEventListener("click", () => {
-      lassoMode = !lassoMode;
-      $("toggleLasso").textContent = lassoMode ? "Lasso on" : "Lasso off";
-      editableViewer?.classList.toggle("lasso-mode", lassoMode);
+    const lasso = $("toggleLasso");
+    if (lasso && !lasso.dataset.bound) {
+      lasso.dataset.bound = "true";
+      lasso.textContent = "Lasso";
+      lasso.setAttribute("aria-pressed", "false");
+      lasso.addEventListener("click", () => setLassoMode(!lassoMode));
+    }
+    const bindings = [
+      ["deleteLassoArea", deleteLassoArea],
+      ["markLassoImage", markLassoAsImage],
+      ["deleteSelectedVisual", deleteSelectedVisual],
+      ["moveLassoUp", () => moveSelection(-18)],
+      ["moveLassoDown", () => moveSelection(18)],
+      ["dismissSelectedMatch", dismissSelectedMatch],
+      ["clearLasso", clearLasso]
+    ];
+    bindings.forEach(([id, fn]) => {
+      const el = $(id);
+      if (el && !el.dataset.bound) {
+        el.dataset.bound = "true";
+        el.addEventListener("click", fn);
+      }
     });
-    $("deleteLassoArea")?.addEventListener("click", deleteLassoArea);
-    $("markLassoImage")?.addEventListener("click", markLassoAsImage);
-    $("deleteSelectedVisual")?.addEventListener("click", deleteSelectedVisual);
-    $("moveLassoUp")?.addEventListener("click", () => moveSelection(-18));
-    $("moveLassoDown")?.addEventListener("click", () => moveSelection(18));
-    $("dismissSelectedMatch")?.addEventListener("click", dismissSelectedMatch);
-    $("clearLasso")?.addEventListener("click", clearLasso);
-    $("showPageBackground")?.addEventListener("change", event => {
-      document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("hide-rendered-background", !event.target.checked));
-    });
-    $("coverBackgroundText")?.addEventListener("change", event => {
-      document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("cover-background-text", event.target.checked));
-    });
-    $("showImageAreas")?.addEventListener("change", event => {
-      document.body.classList.toggle("hide-image-areas", !event.target.checked);
+    const showBg = $("showPageBackground");
+    if (showBg && !showBg.dataset.bound) {
+      showBg.dataset.bound = "true";
+      showBg.addEventListener("change", event => document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("hide-rendered-background", !event.target.checked)));
+    }
+    const coverText = $("coverBackgroundText");
+    if (coverText && !coverText.dataset.bound) {
+      coverText.dataset.bound = "true";
+      coverText.addEventListener("change", event => document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("cover-background-text", event.target.checked)));
+    }
+    const showImages = $("showImageAreas");
+    if (showImages && !showImages.dataset.bound) {
+      showImages.dataset.bound = "true";
+      showImages.addEventListener("change", event => document.body.classList.toggle("hide-image-areas", !event.target.checked));
+    }
+  }
+
+  function removeOldInjectedPanels() {
+    document.querySelectorAll(".upgrade-tool-panel").forEach((panel, index) => {
+      if (panel.id !== "upgradeToolPanel") panel.remove();
+      if (panel.id === "upgradeToolPanel" && index > 0) panel.remove();
     });
   }
 
@@ -89,6 +127,8 @@
   }
 
   function bindSelectionTracking() {
+    if (document.body.dataset.pdfSelectionBound) return;
+    document.body.dataset.pdfSelectionBound = "true";
     document.addEventListener("click", event => {
       const el = event.target.closest?.(".text-item,.image-item,.inserted-block,.redaction-box");
       if (!el) return;
@@ -101,7 +141,9 @@
   }
 
   function bindLasso() {
-    editableViewer?.addEventListener("pointerdown", event => {
+    if (!editableViewer || editableViewer.dataset.lassoBound) return;
+    editableViewer.dataset.lassoBound = "true";
+    editableViewer.addEventListener("pointerdown", event => {
       if (!lassoMode) return;
       const page = event.target.closest(".edit-page");
       if (!page) return;
@@ -119,7 +161,7 @@
       page.querySelector(".page-content")?.appendChild(lassoBox);
       page.setPointerCapture?.(event.pointerId);
     });
-    editableViewer?.addEventListener("pointermove", event => {
+    editableViewer.addEventListener("pointermove", event => {
       if (!lassoMode || !lassoBox || !activePage || !lassoStart) return;
       const point = pagePoint(event, activePage);
       const left = Math.min(lassoStart.x, point.x);
@@ -128,7 +170,7 @@
       const height = Math.abs(point.y - lassoStart.y);
       Object.assign(lassoBox.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
     });
-    editableViewer?.addEventListener("pointerup", event => {
+    editableViewer.addEventListener("pointerup", event => {
       if (!lassoMode || !lassoBox || !activePage) return;
       event.preventDefault();
       selectInsideLasso(activePage, lassoBox);
@@ -169,14 +211,14 @@
   }
 
   function deleteLassoArea() {
-    if (!lassoBox) return alert("Turn Lasso on, drag a box around the area, then click this.");
+    if (!lassoBox) return alert("Click Lasso, drag a box around the area, then click Delete lasso area.");
     makeRedactionFromBox(lassoBox);
     lassoSelection.forEach(el => el.classList.add("deleted"));
     clearLasso();
   }
 
   function markLassoAsImage() {
-    if (!lassoBox) return alert("Turn Lasso on and drag around the image/art area first.");
+    if (!lassoBox) return alert("Click Lasso and drag around the image/art area first.");
     const page = lassoBox.closest(".edit-page");
     const pageContent = lassoBox.closest(".page-content");
     const marker = document.createElement("div");
@@ -235,12 +277,13 @@
   }
 
   function init() {
+    removeOldInjectedPanels();
     bindControls();
     bindSelectionTracking();
     bindLasso();
     addRenderedBackgrounds();
     applyDismissedMatches();
-    new MutationObserver(() => { addRenderedBackgrounds(); applyDismissedMatches(); }).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(() => { removeOldInjectedPanels(); addRenderedBackgrounds(); applyDismissedMatches(); }).observe(document.body, { childList: true, subtree: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
