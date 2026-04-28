@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Split Cleaner</title>
   <meta name="description" content="Side-by-side PDF viewer and editable reproduction cleaner for study PDFs.">
-  <link rel="stylesheet" href="styles.css?v=7">
-  <link rel="stylesheet" href="pdf-zoom.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="stylesheet" href="pdf-zoom.css?v=8">
 </head>
 <body>
   <header class="app-header">
     <div>
       <p class="eyebrow">PDF Split Cleaner</p>
       <h1>Original PDF beside an editable reproduction.</h1>
-      <p class="subtitle">Upload a PDF, review the original on the left, edit the reproduced version on the right, lasso areas, mark image/art areas, delete clutter, and export a clean study version.</p>
+      <p class="subtitle">Upload a PDF first. Add page images only if you need them, so opening the PDF stays responsive.</p>
     </div>
     <div class="header-actions">
       <a class="file-button ghost" href="https://izdrewz.github.io/dash/">Home</a>
@@ -47,15 +47,14 @@
           <button id="dismissSelectedMatch" class="ghost" type="button">Dismiss match</button>
           <button id="clearLasso" class="ghost" type="button">Clear lasso</button>
         </div>
-        <label class="switch"><input id="showPageBackground" type="checkbox" checked> Show PDF page as background</label>
         <label class="switch"><input id="coverBackgroundText" type="checkbox" checked> Cover background under editable text</label>
         <label class="switch"><input id="showImageAreas" type="checkbox" checked> Show clickable image/art areas</label>
       </section>
 
       <section class="panel zoom-tool-panel">
-        <p class="eyebrow">Zoom</p>
+        <p class="eyebrow">Zoom + page images</p>
         <h2>Original + editable</h2>
-        <p class="hint">Zoom both pages together, or adjust each side separately.</p>
+        <p class="hint">Zoom is safe. Page images are optional and added only when you click the button.</p>
         <div class="zoom-grid">
           <button id="zoomBothOut" class="ghost" type="button">Both −</button>
           <button id="zoomBothIn" class="ghost" type="button">Both +</button>
@@ -64,6 +63,8 @@
           <button id="zoomEditableOut" class="ghost" type="button">Editable −</button>
           <button id="zoomEditableIn" class="ghost" type="button">Editable +</button>
           <button id="zoomReset" class="ghost" type="button">Reset zoom</button>
+          <button id="addPageImages" type="button">Add page images</button>
+          <button id="hidePageImages" class="ghost" type="button">Hide page images</button>
         </div>
         <p id="zoomStatus" class="hint">Zoom: 100%</p>
       </section>
@@ -138,8 +139,8 @@
   </template>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=7"></script>
-  <script src="pdf-presets.js?v=7"></script>
-  <script src="pdf-upgrade-tools.js?v=7"></script>
+  <script src="app.js?v=8"></script>
+  <script src="pdf-presets.js?v=8"></script>
+  <script src="pdf-upgrade-tools.js?v=8"></script>
 </body>
 </html>
