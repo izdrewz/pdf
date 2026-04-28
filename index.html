@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Split Cleaner</title>
   <meta name="description" content="Side-by-side PDF viewer and editable reproduction cleaner for study PDFs.">
-  <link rel="stylesheet" href="styles.css?v=8">
-  <link rel="stylesheet" href="pdf-zoom.css?v=8">
+  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="pdf-zoom.css?v=9">
 </head>
 <body>
   <header class="app-header">
     <div>
       <p class="eyebrow">PDF Split Cleaner</p>
       <h1>Original PDF beside an editable reproduction.</h1>
-      <p class="subtitle">Upload a PDF first. Add page images only if you need them, so opening the PDF stays responsive.</p>
+      <p class="subtitle">This version opens PDFs slowly and safely: first page first, then load more pages only when you ask.</p>
     </div>
     <div class="header-actions">
       <a class="file-button ghost" href="https://izdrewz.github.io/dash/">Home</a>
@@ -30,7 +30,12 @@
       <section class="panel">
         <p class="eyebrow">File</p>
         <h2 id="fileTitle">No PDF loaded</h2>
-        <p id="fileStatus" class="hint">Choose a PDF to start. The original file stays in your browser.</p>
+        <p id="fileStatus" class="hint">Choose a PDF to start. The first page loads first so the app does not freeze.</p>
+        <div class="pattern-actions upgrade-actions">
+          <button id="loadNextPage" class="ghost" type="button">Load next page</button>
+          <button id="loadAllPagesSlowly" class="ghost" type="button">Load all slowly</button>
+          <button id="stopLoadingPages" class="ghost" type="button">Stop loading</button>
+        </div>
       </section>
 
       <section class="panel upgrade-tool-panel" id="upgradeToolPanel">
@@ -139,8 +144,8 @@
   </template>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=8"></script>
-  <script src="pdf-presets.js?v=8"></script>
-  <script src="pdf-upgrade-tools.js?v=8"></script>
+  <script src="app.js?v=9"></script>
+  <script src="pdf-presets.js?v=9"></script>
+  <script src="pdf-upgrade-tools.js?v=9"></script>
 </body>
 </html>
