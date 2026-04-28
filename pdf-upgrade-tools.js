@@ -47,12 +47,14 @@
       <div class="pattern-actions upgrade-actions">
         <button id="toggleLasso" class="ghost" type="button">Lasso off</button>
         <button id="deleteLassoArea" class="danger" type="button">Delete lasso area</button>
+        <button id="markLassoImage" class="ghost" type="button">Mark lasso as image/art</button>
         <button id="moveLassoUp" class="ghost" type="button">Move up</button>
         <button id="moveLassoDown" class="ghost" type="button">Move down</button>
         <button id="dismissSelectedMatch" class="ghost" type="button">Dismiss match</button>
         <button id="clearLasso" class="ghost" type="button">Clear lasso</button>
       </div>
       <label class="switch"><input id="showPageBackground" type="checkbox" checked> Carry rendered PDF page/image background</label>
+      <label class="switch"><input id="coverBackgroundText" type="checkbox" checked> Cover background under editable text</label>
       <label class="switch"><input id="strongPageBackground" type="checkbox"> Stronger background</label>
     `;
     tools.insertBefore(panel, tools.children[2] || null);
@@ -63,12 +65,16 @@
       editableViewer.classList.toggle("lasso-mode", lassoMode);
     });
     $("deleteLassoArea").addEventListener("click", deleteLassoArea);
+    $("markLassoImage").addEventListener("click", markLassoAsImage);
     $("moveLassoUp").addEventListener("click", () => moveSelection(-18));
     $("moveLassoDown").addEventListener("click", () => moveSelection(18));
     $("dismissSelectedMatch").addEventListener("click", dismissSelectedMatch);
     $("clearLasso").addEventListener("click", clearLasso);
     $("showPageBackground").addEventListener("change", event => {
       document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("hide-rendered-background", !event.target.checked));
+    });
+    $("coverBackgroundText").addEventListener("change", event => {
+      document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("cover-background-text", event.target.checked));
     });
     $("strongPageBackground").addEventListener("change", event => {
       document.querySelectorAll(".edit-page").forEach(page => page.classList.toggle("strong-rendered-background", event.target.checked));
@@ -77,19 +83,21 @@
 
   function addRenderedBackgrounds() {
     document.querySelectorAll(".edit-page").forEach(page => {
-      if (page.dataset.backgroundAdded) return;
       const pageNo = page.dataset.page;
       const canvas = originalViewer?.querySelector(`.original-page[data-page="${pageNo}"] canvas`);
       const background = page.querySelector(".background-layer");
       if (!canvas || !background) return;
       try {
-        background.style.backgroundImage = `url(${canvas.toDataURL("image/png")})`;
-        background.style.backgroundSize = "100% 100%";
-        background.style.backgroundRepeat = "no-repeat";
+        if (!page.dataset.backgroundAdded) {
+          background.style.backgroundImage = `url(${canvas.toDataURL("image/png")})`;
+          background.style.backgroundSize = "100% 100%";
+          background.style.backgroundRepeat = "no-repeat";
+          page.dataset.backgroundAdded = "true";
+        }
         page.classList.add("with-rendered-background");
+        page.classList.toggle("cover-background-text", $("coverBackgroundText") ? $("coverBackgroundText").checked : true);
         if ($("showPageBackground") && !$("showPageBackground").checked) page.classList.add("hide-rendered-background");
         if ($("strongPageBackground")?.checked) page.classList.add("strong-rendered-background");
-        page.dataset.backgroundAdded = "true";
       } catch (error) {
         console.info("Could not copy rendered background", error);
       }
@@ -203,6 +211,34 @@
     lassoBox.remove();
     lassoBox = null;
     lassoSelection = [];
+  }
+
+  function markLassoAsImage() {
+    if (!lassoBox) return alert("Draw a lasso around the image/art area first.");
+    const page = lassoBox.closest(".edit-page");
+    const pageContent = lassoBox.closest(".page-content");
+    if (!page || !pageContent) return;
+    const marker = document.createElement("div");
+    marker.className = "image-item manual-image-area";
+    marker.dataset.page = page.dataset.page || "";
+    marker.dataset.index = `manual-image-${Date.now()}`;
+    marker.textContent = "image/art area";
+    marker.style.left = lassoBox.style.left;
+    marker.style.top = lassoBox.style.top;
+    marker.style.width = lassoBox.style.width;
+    marker.style.height = lassoBox.style.height;
+    marker.addEventListener("click", event => {
+      event.stopPropagation();
+      currentSelected = marker;
+      document.querySelectorAll(".selected").forEach(el => el.classList.remove("selected"));
+      marker.classList.add("selected");
+      const info = $("selectedInfo");
+      if (info) info.textContent = `Manual image/art area on page ${marker.dataset.page}.`;
+    });
+    pageContent.appendChild(marker);
+    currentSelected = marker;
+    clearLasso();
+    document.getElementById("rescanPatterns")?.click();
   }
 
   function moveSelection(deltaY) {
