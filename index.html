@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Split Cleaner</title>
   <meta name="description" content="Side-by-side PDF viewer and editable reproduction cleaner for study PDFs.">
-  <link rel="stylesheet" href="styles.css?v=11">
-  <link rel="stylesheet" href="pdf-zoom.css?v=11">
-  <link rel="stylesheet" href="pdf-move-fix.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="pdf-zoom.css?v=12">
+  <link rel="stylesheet" href="pdf-move-fix.css?v=12">
+  <link rel="stylesheet" href="pdf-lasso-only.css?v=12">
 </head>
 <body>
   <header class="app-header">
     <div>
       <p class="eyebrow">PDF Split Cleaner</p>
       <h1>Original PDF beside an editable reproduction.</h1>
-      <p class="subtitle">Stable loader: first page first, then load more pages only when you ask.</p>
+      <p class="subtitle">Stable loader: first page first, then use lasso tools for manual cleanup.</p>
     </div>
     <div class="header-actions">
       <a class="file-button ghost" href="https://izdrewz.github.io/dash/">Home</a>
@@ -40,18 +41,19 @@
       </section>
 
       <section class="panel upgrade-tool-panel" id="upgradeToolPanel">
-        <p class="eyebrow">Area tools</p>
-        <h2>Lasso + image tools</h2>
-        <p class="hint">Click <strong>Lasso</strong>, drag a box on the editable page, then choose what to do with that area. Click Lasso again to stop drawing.</p>
+        <p class="eyebrow">Manual edit tools</p>
+        <h2>Lasso tools</h2>
+        <p class="hint">Click <strong>Lasso</strong>, drag a box on the editable page, then delete the area, mark it as image/art, or insert a text box there.</p>
         <div class="pattern-actions upgrade-actions">
           <button id="toggleLasso" class="ghost lasso-toggle" type="button" aria-pressed="false">Lasso</button>
+          <button id="insertLassoTextBox" type="button">Insert text box</button>
           <button id="deleteLassoArea" class="danger" type="button">Delete lasso area</button>
           <button id="markLassoImage" class="ghost" type="button">Mark lasso as image/art</button>
           <button id="deleteSelectedVisual" class="danger" type="button">Delete selected image/art</button>
           <button id="moveLassoUp" class="ghost" type="button">Move text up</button>
           <button id="moveLassoDown" class="ghost" type="button">Move text down</button>
-          <button id="dismissSelectedMatch" class="ghost" type="button">Dismiss match</button>
           <button id="clearLasso" class="ghost" type="button">Clear lasso</button>
+          <button id="undoLast" class="ghost" type="button">Undo</button>
         </div>
         <label class="switch"><input id="coverBackgroundText" type="checkbox" checked> Cover background under editable text</label>
         <label class="switch"><input id="showImageAreas" type="checkbox" checked> Show clickable image/art areas</label>
@@ -75,27 +77,19 @@
         <p id="zoomStatus" class="hint">Zoom: 100%</p>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Pattern groups</p>
-            <h2>Jump and clean</h2>
-          </div>
-          <button id="rescanPatterns" class="ghost" type="button">Rescan</button>
-        </div>
+      <section class="panel hidden-pattern-tools" aria-hidden="true">
+        <button id="rescanPatterns" class="ghost" type="button">Rescan</button>
         <div id="patternChips" class="chip-list"></div>
-        <div class="pattern-actions">
-          <button id="deleteGroup" class="danger" type="button">Delete selected group</button>
-          <button id="hideGroup" class="ghost" type="button">Hide selected group</button>
-          <button id="undoLast" class="ghost" type="button">Undo</button>
-        </div>
-        <div id="matchesList" class="matches-list empty-box">Load a PDF, then choose a group.</div>
+        <button id="deleteGroup" class="danger" type="button">Delete selected group</button>
+        <button id="hideGroup" class="ghost" type="button">Hide selected group</button>
+        <div id="matchesList" class="matches-list empty-box">Hidden pattern tools.</div>
+        <button id="dismissSelectedMatch" class="ghost" type="button">Dismiss match</button>
       </section>
 
       <section class="panel">
         <p class="eyebrow">Selected item</p>
         <h2>Quick edit</h2>
-        <p id="selectedInfo" class="hint">Click editable text, a marked image/art area, or a matched item.</p>
+        <p id="selectedInfo" class="hint">Click editable text, a marked image/art area, or a text box.</p>
         <div class="pattern-actions">
           <button id="deleteSelected" class="danger" type="button">Delete selected text</button>
           <button id="toggleCollapseSelected" class="ghost" type="button">Collapse / expand</button>
@@ -145,9 +139,9 @@
   </template>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app-stable.js?v=11"></script>
-  <script src="pdf-presets.js?v=11"></script>
-  <script src="pdf-upgrade-tools.js?v=11"></script>
-  <script src="pdf-move-fix.js?v=11"></script>
+  <script src="app-stable.js?v=12"></script>
+  <script src="pdf-upgrade-tools.js?v=12"></script>
+  <script src="pdf-move-fix.js?v=12"></script>
+  <script src="pdf-lasso-only.js?v=12"></script>
 </body>
 </html>
