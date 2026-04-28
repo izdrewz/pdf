@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF Split Cleaner</title>
+  <meta name="description" content="Side-by-side PDF viewer and editable reproduction cleaner for study PDFs.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">PDF Split Cleaner</p>
+      <h1>Original PDF beside an editable reproduction.</h1>
+      <p class="subtitle">Upload a PDF, review the original on the left, edit the reproduced version on the right, jump to patterns like hours, activities, images, numbers, questions, and “you”, then export a clean study version.</p>
+    </div>
+    <div class="header-actions">
+      <label class="file-button">Open PDF<input id="pdfInput" type="file" accept="application/pdf"></label>
+      <button id="exportHtml" class="ghost" type="button">Export HTML</button>
+      <button id="exportState" class="ghost" type="button">Export edit state</button>
+      <label class="file-button ghost">Import state<input id="importState" type="file" accept="application/json"></label>
+      <button id="printClean" type="button">Print / Save PDF</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="tools-panel">
+      <section class="panel">
+        <p class="eyebrow">File</p>
+        <h2 id="fileTitle">No PDF loaded</h2>
+        <p id="fileStatus" class="hint">Choose a PDF to start. The original file stays in your browser.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Pattern groups</p>
+            <h2>Jump and clean</h2>
+          </div>
+          <button id="rescanPatterns" class="ghost" type="button">Rescan</button>
+        </div>
+        <div id="patternChips" class="chip-list"></div>
+        <div class="pattern-actions">
+          <button id="deleteGroup" class="danger" type="button">Delete selected group</button>
+          <button id="hideGroup" class="ghost" type="button">Hide selected group</button>
+          <button id="undoLast" class="ghost" type="button">Undo</button>
+        </div>
+        <div id="matchesList" class="matches-list empty-box">Load a PDF, then choose a group.</div>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">Selected item</p>
+        <h2>Quick edit</h2>
+        <p id="selectedInfo" class="hint">Click editable text, an image placeholder, or a matched item.</p>
+        <div class="pattern-actions">
+          <button id="deleteSelected" class="danger" type="button">Delete selected</button>
+          <button id="toggleCollapseSelected" class="ghost" type="button">Collapse / expand</button>
+          <button id="deleteNearbyMcq" class="ghost" type="button">Delete nearby MCQ options</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">Transcript / notes</p>
+        <h2>Insert collapsible block</h2>
+        <label>Title<input id="insertTitle" type="text" placeholder="Transcript, explanation, notes..."></label>
+        <label>Content<textarea id="insertText" rows="6" placeholder="Paste transcript or extra material here."></textarea></label>
+        <button id="insertBlock" type="button">Insert into edited version</button>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">View</p>
+        <h2>Cleaner modes</h2>
+        <label class="switch"><input id="plainMode" type="checkbox"> Plain white reproduction</label>
+        <label class="switch"><input id="syncScroll" type="checkbox" checked> Sync page jumps</label>
+        <label class="switch"><input id="showDeleted" type="checkbox"> Show deleted faintly</label>
+      </section>
+    </aside>
+
+    <section class="split-screen">
+      <section class="viewer-pane">
+        <div class="pane-header">
+          <div><p class="eyebrow">Original</p><h2>PDF preview</h2></div>
+        </div>
+        <div id="originalViewer" class="scroll-pane original-viewer empty-box">Open a PDF to see the original pages here.</div>
+      </section>
+
+      <section class="viewer-pane">
+        <div class="pane-header">
+          <div><p class="eyebrow">Editable reproduction</p><h2>Clean version</h2></div>
+        </div>
+        <div id="editableViewer" class="scroll-pane editable-viewer empty-box">The editable reproduction will appear here.</div>
+      </section>
+    </section>
+  </main>
+
+  <template id="transcriptTemplate">
+    <details class="inserted-block" open>
+      <summary contenteditable="true">Transcript / notes</summary>
+      <div class="inserted-content" contenteditable="true"></div>
+    </details>
+  </template>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
