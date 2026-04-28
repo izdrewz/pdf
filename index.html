@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Split Cleaner</title>
   <meta name="description" content="Side-by-side PDF viewer and editable reproduction cleaner for study PDFs.">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
   <header class="app-header">
@@ -32,12 +32,12 @@
         <p id="fileStatus" class="hint">Choose a PDF to start. The original file stays in your browser.</p>
       </section>
 
-      <section class="panel upgrade-tool-panel">
+      <section class="panel upgrade-tool-panel" id="upgradeToolPanel">
         <p class="eyebrow">Area tools</p>
         <h2>Lasso + image tools</h2>
-        <p class="hint">Click <strong>Lasso off</strong> to turn it on, drag a box on the editable page, then choose what to do with that area.</p>
+        <p class="hint">Click <strong>Lasso</strong>, drag a box on the editable page, then choose what to do with that area. Click Lasso again to stop drawing.</p>
         <div class="pattern-actions upgrade-actions">
-          <button id="toggleLasso" class="ghost" type="button">Lasso off</button>
+          <button id="toggleLasso" class="ghost lasso-toggle" type="button" aria-pressed="false">Lasso</button>
           <button id="deleteLassoArea" class="danger" type="button">Delete lasso area</button>
           <button id="markLassoImage" class="ghost" type="button">Mark lasso as image/art</button>
           <button id="deleteSelectedVisual" class="danger" type="button">Delete selected image/art</button>
@@ -121,8 +121,8 @@
   </template>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js"></script>
-  <script src="pdf-presets.js"></script>
-  <script src="pdf-upgrade-tools.js"></script>
+  <script src="app.js?v=6"></script>
+  <script src="pdf-presets.js?v=6"></script>
+  <script src="pdf-upgrade-tools.js?v=6"></script>
 </body>
 </html>
