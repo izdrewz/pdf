@@ -20,11 +20,18 @@ A local-first browser app for cleaning study PDFs by showing the original PDF be
   - multiple-choice options
   - images / art
   - text boxes / screen clutter
+- Adds one-click cleaning presets:
+  - Remove study-time estimates
+  - Remove conversational wording
+  - Remove quiz / answer clutter
+  - Remove design clutter
+  - Plain study notes mode
 - Lets you delete or hide a whole selected group
 - Lets you delete a selected item
 - Lets you insert collapsible transcript or notes blocks
 - Lets you collapse selected text into a collapsible block
 - Has an MCQ helper to delete nearby multiple-choice options
+- Links back to the shared home dashboard
 - Exports:
   - cleaned HTML
   - edit-state JSON
@@ -36,10 +43,11 @@ A local-first browser app for cleaning study PDFs by showing the original PDF be
 2. Click **Open PDF**.
 3. Use the left pane as the original reference.
 4. Edit the right pane.
-5. Use pattern groups to jump to clutter you may want to remove.
-6. Insert transcripts or notes as collapsible blocks.
-7. Export the edit state regularly.
-8. Use **Print / Save PDF** to make a cleaned PDF from the editable reproduction.
+5. Use cleaning presets for fast cleanup, or use pattern groups manually.
+6. Use Undo if a preset removes too much.
+7. Insert transcripts or notes as collapsible blocks.
+8. Export the edit state regularly.
+9. Use **Print / Save PDF** to make a cleaned PDF from the editable reproduction.
 
 ## Important limitation
 
@@ -87,14 +95,17 @@ After GitHub Pages finishes deploying, the app should be available at:
 
 `https://izdrewz.github.io/pdf/`
 
+The shared dashboard is:
+
+`https://izdrewz.github.io/Tma-workbench-local/home.html`
+
 ## Future upgrades
 
 - Better image extraction and removal
 - True PDF redaction/export using a backend or advanced client-side PDF library
 - OCR for scanned PDFs
 - Table-aware reproduction
-- More pattern groups
-- Saved cleaning presets
+- Custom saved cleaning presets
 - Drag-to-select multiple items
 - Better MCQ detection by question block
 - Export to DOCX
