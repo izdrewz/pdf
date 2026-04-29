@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Split Cleaner</title>
   <meta name="description" content="Side-by-side PDF viewer and editable reproduction cleaner for study PDFs.">
-  <link rel="stylesheet" href="styles.css?v=12">
-  <link rel="stylesheet" href="pdf-zoom.css?v=12">
-  <link rel="stylesheet" href="pdf-move-fix.css?v=12">
-  <link rel="stylesheet" href="pdf-lasso-only.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="pdf-zoom.css?v=13">
+  <link rel="stylesheet" href="pdf-move-fix.css?v=13">
+  <link rel="stylesheet" href="pdf-lasso-only.css?v=13">
+  <link rel="stylesheet" href="pdf-multiselect-undo.css?v=13">
 </head>
 <body>
   <header class="app-header">
@@ -43,12 +44,15 @@
       <section class="panel upgrade-tool-panel" id="upgradeToolPanel">
         <p class="eyebrow">Manual edit tools</p>
         <h2>Lasso tools</h2>
-        <p class="hint">Click <strong>Lasso</strong>, drag a box on the editable page, then delete the area, mark it as image/art, or insert a text box there.</p>
+        <p class="hint">Use <strong>Undo</strong> after a lasso deletion. Use <strong>Multi-select</strong> to click several boxes, then delete them together.</p>
         <div class="pattern-actions upgrade-actions">
           <button id="toggleLasso" class="ghost lasso-toggle" type="button" aria-pressed="false">Lasso</button>
           <button id="insertLassoTextBox" type="button">Insert text box</button>
           <button id="deleteLassoArea" class="danger" type="button">Delete lasso area</button>
           <button id="markLassoImage" class="ghost" type="button">Mark lasso as image/art</button>
+          <button id="toggleMultiSelect" class="ghost multi-toggle" type="button" aria-pressed="false">Multi-select</button>
+          <button id="deleteMultiSelected" class="danger" type="button">Delete selected boxes</button>
+          <button id="clearMultiSelect" class="ghost" type="button">Clear selected boxes</button>
           <button id="deleteSelectedVisual" class="danger" type="button">Delete selected image/art</button>
           <button id="moveLassoUp" class="ghost" type="button">Move text up</button>
           <button id="moveLassoDown" class="ghost" type="button">Move text down</button>
@@ -139,9 +143,10 @@
   </template>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app-stable.js?v=12"></script>
-  <script src="pdf-upgrade-tools.js?v=12"></script>
-  <script src="pdf-move-fix.js?v=12"></script>
-  <script src="pdf-lasso-only.js?v=12"></script>
+  <script src="app-stable.js?v=13"></script>
+  <script src="pdf-upgrade-tools.js?v=13"></script>
+  <script src="pdf-move-fix.js?v=13"></script>
+  <script src="pdf-lasso-only.js?v=13"></script>
+  <script src="pdf-multiselect-undo.js?v=13"></script>
 </body>
 </html>
