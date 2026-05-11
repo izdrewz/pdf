@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>File Comparer</title>
+  <meta name="description" content="Compare two files, find exact and similar sentences, glossary topic matches, and build a merged document.">
+  <link rel="stylesheet" href="compare.css?v=1">
+</head>
+<body>
+  <header class="compare-header">
+    <section class="title-panel">
+      <p class="eyebrow">Comparer</p>
+      <h1>File comparison workspace.</h1>
+      <p class="subtitle">Load two PDFs, DOCX files, text files, or pasted texts. The app highlights exact matches, near matches, unique sentences, and glossary topic overlaps, then helps you build a merged document.</p>
+    </section>
+    <nav class="header-actions" aria-label="Navigation">
+      <a class="button ghost" href="https://izdrewz.github.io/dash/">Dashboard</a>
+      <a class="button ghost" href="index.html">PDF cleaner</a>
+      <button id="exportMerged" type="button">Export merged</button>
+      <button id="exportReport" class="ghost" type="button">Export report</button>
+    </nav>
+  </header>
+
+  <main class="compare-shell">
+    <aside class="sidebar" aria-label="Comparison summary">
+      <section class="side-card">
+        <p class="eyebrow">Files</p>
+        <h2>Load files</h2>
+        <label class="file-drop file-one">File 1<input id="fileOne" type="file" accept=".pdf,.docx,.txt,.md,.rtf,.html,.htm,.json,.csv"></label>
+        <label class="file-drop file-two">File 2<input id="fileTwo" type="file" accept=".pdf,.docx,.txt,.md,.rtf,.html,.htm,.json,.csv"></label>
+        <button id="compareNow" type="button">Compare</button>
+        <p id="loadStatus" class="hint">Upload both files, or paste text into the file panes.</p>
+      </section>
+
+      <section class="side-card glossary-card">
+        <p class="eyebrow">Glossary</p>
+        <h2>Key words</h2>
+        <p class="hint">One topic per line. Use aliases after a colon, for example: stigma: shame, discrimination.</p>
+        <textarea id="glossaryInput" rows="8"></textarea>
+        <button id="applyGlossary" class="ghost" type="button">Apply glossary</button>
+      </section>
+
+      <section class="side-card stats-card">
+        <p class="eyebrow">Results</p>
+        <h2>Click to jump</h2>
+        <button class="stat-button" data-filter="topic"><span>Topic matches shared</span><strong id="topicCount">0</strong></button>
+        <button class="stat-button" data-filter="exact"><span>Exact same sentences</span><strong id="exactCount">0</strong></button>
+        <button class="stat-button" data-filter="similar"><span>Slightly same sentences</span><strong id="similarCount">0</strong></button>
+        <button class="stat-button" data-filter="unique1"><span>Unique to file 1</span><strong id="uniqueOneCount">0</strong></button>
+        <button class="stat-button" data-filter="unique2"><span>Unique to file 2</span><strong id="uniqueTwoCount">0</strong></button>
+      </section>
+
+      <section class="side-card match-list-card">
+        <div class="match-list-head">
+          <h2 id="matchListTitle">Matches</h2>
+          <button id="clearFilter" class="ghost" type="button">All</button>
+        </div>
+        <div id="matchList" class="match-list empty-box">Run a comparison to see matches.</div>
+      </section>
+    </aside>
+
+    <section class="comparison-area">
+      <section class="file-grid">
+        <article class="file-panel file-panel-one">
+          <div class="pane-head"><p class="eyebrow">File 1</p><h2 id="fileOneTitle">No file loaded</h2></div>
+          <textarea id="pasteOne" class="paste-box" rows="6" placeholder="Paste file 1 text here if you are not uploading."></textarea>
+          <div id="fileOneView" class="sentence-view empty-box">File 1 sentences will appear here.</div>
+        </article>
+        <article class="file-panel file-panel-two">
+          <div class="pane-head"><p class="eyebrow">File 2</p><h2 id="fileTwoTitle">No file loaded</h2></div>
+          <textarea id="pasteTwo" class="paste-box" rows="6" placeholder="Paste file 2 text here if you are not uploading."></textarea>
+          <div id="fileTwoView" class="sentence-view empty-box">File 2 sentences will appear here.</div>
+        </article>
+      </section>
+
+      <section class="merged-panel">
+        <div class="pane-head merged-head">
+          <div><p class="eyebrow">File 3</p><h2>Merged document builder</h2></div>
+          <div class="merge-actions">
+            <button id="rebuildMerge" class="ghost" type="button">Rebuild holders</button>
+            <button id="copyMerged" type="button">Copy merged</button>
+          </div>
+        </div>
+        <p class="hint">Exact matches are automatically accepted. Empty holders are placed around shared anchor sentences so you can choose File 1, File 2, write a hybrid sentence, or hold a sentence for the next empty slot.</p>
+        <div id="holdTray" class="hold-tray empty-box">No held sentence yet.</div>
+        <div id="mergedView" class="merged-view empty-box">Run a comparison to build File 3.</div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="choiceDialog" class="choice-dialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <div><p class="eyebrow">Choose carry-over</p><h2>Sentence slot</h2></div>
+        <button value="close" class="dialog-close ghost" type="submit">×</button>
+      </div>
+      <div class="choice-grid">
+        <section class="choice-card file-one-choice">
+          <h3>File 1 option</h3>
+          <p id="choiceFileOne" class="choice-text"></p>
+          <button id="chooseFileOne" type="button">Use file 1</button>
+          <button id="holdFileOne" class="ghost" type="button">Hold file 1</button>
+        </section>
+        <section class="choice-card file-two-choice">
+          <h3>File 2 option</h3>
+          <p id="choiceFileTwo" class="choice-text"></p>
+          <button id="chooseFileTwo" type="button">Use file 2</button>
+          <button id="holdFileTwo" class="ghost" type="button">Hold file 2</button>
+        </section>
+      </div>
+      <section class="choice-card hybrid-card">
+        <h3>Create new</h3>
+        <textarea id="choiceHybrid" rows="5" placeholder="Write your own hybrid sentence here."></textarea>
+        <div class="dialog-actions">
+          <button id="chooseHybrid" type="button">Use new sentence</button>
+          <button id="useHeld" class="ghost" type="button">Use held sentence</button>
+          <button id="clearSlot" class="ghost" type="button">Clear slot</button>
+        </div>
+      </section>
+    </form>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+  <script src="compare.js?v=1"></script>
+</body>
+</html>
