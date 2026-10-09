@@ -63,7 +63,7 @@ function render(){
  const root=$('workspace');root.replaceChildren();
  if(!u){root.append(el('p','empty',state.legacyArchive?'Your old decisions were imported. Open the original PDF to rebuild the text groups without losing your edits.':'Open a PDF to begin.'));return;}
  root.append(sourceInfo(u));
- if(state.unmatchedPrior?.length){const w=elementSection('warning',`${state.unmatchedPrior.length} earlier reviewed items could not be matched exactly after regrouping.`);w.append(el('p','sub','Your previous project is retained inside the backup. Please recheck regrouped tables; nothing was silently approved.'));root.append(w);}
+ if(state.unmatchedPrior?.length && u.type==='planner-table'){const w=elementSection('warning',`${state.unmatchedPrior.length} earlier reviewed items could not be matched exactly after regrouping.`);w.append(el('p','sub','Your previous project is retained inside the backup. Please recheck regrouped tables; nothing was silently approved.'));root.append(w);}
  if(u.heading)root.append(el('div','chapter','Section: '+u.heading));
  const cleanup=['metadata','interface','guidance','planner','planner-table'].includes(u.type);
  if(cleanup){const b=elementSection('proposed-cleanup','Suggested removal: '+(u.type==='planner-table'?'study timetable':u.type==='planner'?'study-planning instructions':u.type==='guidance'?'non-notes instructions':u.type==='metadata'?'print metadata':'interface controls'));b.append(el('p','sub',u.reason));root.append(b);}
@@ -138,7 +138,7 @@ function notesSections(){const all=state.units;const selected=all.filter(u=>reso
    text:u.status==='skipped'?u.text:isCuttable(u)?C.editedText(u,true):'[Visual/table check needed — consult original PDF] '+u.text}));
  return{sections,removed,all:selected.length};}
 function exportNotes(){if(!content().length)return status('Open PDF first.');const data=notesSections();if(!data.all)return status('Review something first.');
- download('reviewed-university-notes.txt',data.sections.map(u=>`PDF PAGE ${u.page} | ${u.type} | ${u.status}\n${u.heading?u.heading+'\n':''}${u.text}`).join('\n\n------------------------\n\n'),'text/plain;charset=utf-8');status(`Exported ${data.sections.length} kept sections; ${data.removed.length} approved removals excluded from notes. All originals remain in project backup.`);}
+ download('reviewed-university-notes.txt',`SOURCE: ${state.name}\n\n`+data.sections.map(u=>`PDF PAGE ${u.page} | ${u.type} | ${u.status}\n${u.heading?u.heading+'\n':''}${u.text}`).join('\n\n------------------------\n\n'),'text/plain;charset=utf-8');status(`Exported ${data.sections.length} kept sections; ${data.removed.length} approved removals excluded from notes. All originals remain in project backup.`);}
 function previewAll(){const modal=$('notesDialog'),host=$('allNotes'),data=notesSections();host.replaceChildren();
  $('notesCount').textContent=`${data.all} resolved items · ${data.sections.length} included · ${data.removed.length} approved removals · ${content().length-data.all} awaiting review. Only resolved items appear below.`;
  if(!data.sections.length)host.append(el('p','sub','No reviewed notes yet. Approve a change or choose Keep original to include it here.'));
@@ -156,6 +156,6 @@ $('restore').addEventListener('change',async e=>{const file=e.target.files?.[0];
    else{state={version:3,name:src.name,pdfSize:src.pdfSize,pageCount:src.pageCount,index:0,units:[],legacyArchive:src,unmatchedPrior:[]};status('Earlier project imported with all original decisions. Open the same PDF to rebuild and safely transfer exact matches.');}
    if(pdfBlob){URL.revokeObjectURL(pdfBlob);pdfBlob=null;}showPage=0;lastReports=null;save();render();
  }catch(err){status('Import failed: '+err.message);}finally{e.target.value='';}});
-try{const saved=localStorage.getItem(KEY);if(saved){const src=JSON.parse(saved);if(src?.version===3&&Array.isArray(src.units))state=src;}}catch(_){/* fresh browser */}
+try{const saved=localStorage.getItem(KEY);if(saved){const src=JSON.parse(saved);if(src?.version===3&&Array.isArray(src.units)){state=src;$('savedState').textContent='Recovered local project';}}}catch(_){/* fresh browser */}
 render();
 })();
