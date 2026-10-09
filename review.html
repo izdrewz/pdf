@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Source Review — five-sentence experiment</title>
+<link rel="stylesheet" href="review.css">
+</head>
+<body>
+<header><div><small>EXPERIMENTAL BRANCH · SOURCE REVIEW</small><h1>Review and shorten your PDF</h1><p>Five sentences at a time. Your original always stays untouched.</p></div><div class="top-actions"><a href="https://izdrewz.github.io/pdf/" target="_blank" rel="noopener noreferrer">Original PDF Cleaner ↗</a><label class="primary upload">Open PDF<input id="pick" type="file" accept="application/pdf,.pdf" hidden></label><button id="save">Export project</button><label class="secondary upload">Import project<input id="restore" type="file" accept=".json,application/json" hidden></label><button id="notes">Export reviewed notes</button></div></header>
+<div class="status"><span id="fileLabel">No PDF loaded</span><span id="statusText" role="status" aria-live="polite">Choose a PDF to begin</span></div>
+<main><section class="pane"><div class="pane-head"><h2>Original PDF</h2><span id="page">—</span></div><div id="viewer"><p class="empty">Open a PDF to compare the original with your notes.</p></div><p class="hint">Original displayed for comparison only; it is never edited.</p></section><section class="pane"><div class="pane-head"><div><h2>Five-sentence review</h2><span class="sub">Preserve anything unclear rather than deleting it</span></div><span id="progress">—</span></div><div id="workspace"><div class="empty">Open a PDF to begin reviewing.</div></div><div class="nav"><button id="previous">← Previous</button><span id="counter">—</span><button id="next">Next →</button></div></section></main>
+<footer>The reader uses PDF.js in your browser. No PDF is uploaded to our servers. <strong>Review every cut for meaning and check citations against the source.</strong></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="review-core.js"></script>
+<script src="review.js"></script>
+</body></html>
