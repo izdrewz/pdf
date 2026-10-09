@@ -1,185 +1,161 @@
-/* Standalone browser viewer built on PDF.js; main-branch cleaner remains untouched. */
-(() => {
-  'use strict';
-  const C=window.ReviewCore,$=id=>document.getElementById(id),KEY='pdf-five-sentence-experiment-v1';
-  let state={units:[],index:0,name:'',pdfSize:0,pageCount:0},pdf=null,pdfBlob=null,showPage=0;
-  let busy=false,insertingAt=null,selectingInsertion=false,undo=[];
-  function status(message){$('statusText').textContent=message;}
-  function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
-  function button(label,css,fn){const n=el('button',css,label);n.type='button';n.addEventListener('click',fn);return n;}
-  function heading(label){return el('p','eyebrow',label);}
-  function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=el('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
-  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(_){status('Autosave unavailable: use Export project for a backup.');}}
-  function current(){return state.units[state.index];}
-  function hasChanges(u){return u.deleted.length>0 || Object.values(u.insertions).some(a=>a.length>0);}
-  function checkpoint(u){undo.push({id:u.id,deleted:[...u.deleted],insertions:JSON.parse(JSON.stringify(u.insertions)),status:u.status,proposal:u.proposal?[...u.proposal]:null});if(undo.length>100)undo.shift();}
-  function transact(fn){fn();save();render();}
-  function viewer(page){
-    if(!pdfBlob || !page || showPage===page)return;
-    showPage=page;$('page').textContent='PDF page '+page;
-    const f=el('iframe');f.title=`Original ${state.name}, PDF page ${page}`;f.src=pdfBlob+'#page='+page;
-    $('viewer').replaceChildren(f);
-  }
-  function render(){
-    const u=current(), reviewed=state.units.filter(x=>['accepted','skipped','flagged','reviewed','protected-reviewed'].includes(x.status)).length;
-    $('fileLabel').textContent=state.name?`${state.name} · ${state.pageCount} PDF pages`:'No PDF loaded';
-    $('progress').textContent=state.units.length?`${reviewed}/${state.units.length} resolved`: '—';
-    $('counter').textContent=u?`${state.index+1} / ${state.units.length}`:'—';
-    $('previous').disabled=!u||state.index===0;
-    $('next').disabled=!u||state.index===state.units.length-1;
-    if(u)viewer(u.page);
-    const root=$('workspace');root.replaceChildren();if(!u){root.appendChild(el('div','empty','Open a PDF to start.'));return;}
-    const topline=el('div','row');topline.appendChild(el('span','state '+(['accepted','skipped','flagged','reviewed','protected-reviewed'].includes(u.status)?'done':''),u.status.replace('-',' ')));topline.appendChild(el('span','sub',`PDF page ${u.page} · ${u.type}`));root.appendChild(topline);
-    if(!['text','metadata','interface'].includes(u.type)){
-      const warn=el('section','warning');warn.appendChild(el('h3','',u.type==='table'?'Table/layout needs checking':u.type==='visual'?'Image or diagram needs visual review':u.type==='links'?'Linked content must be checked':'Special content — preserved'));
-      warn.appendChild(el('p','small',u.reason));warn.appendChild(heading('Detected source text or placeholder'));
-      warn.appendChild(el('div','source',u.text));
-      root.appendChild(warn);
-      const choices=el('div','row buttons');choices.appendChild(button('Mark as checked','primary',()=>transact(()=>{checkpoint(u);u.status='protected-reviewed';})));choices.appendChild(button('Flag for attention','',()=>transact(()=>{checkpoint(u);u.status='flagged';})));choices.appendChild(button('Leave unresolved','',()=>transact(()=>{checkpoint(u);u.status='protected';})));root.appendChild(choices);
-      root.appendChild(el('p','sub','This item cannot be shortened automatically. Your project export retains its source-page reference and warning.'));
-      root.appendChild(button('Undo last edit','',restoreUndo));return;
-    }
-    const proposedCleanup=u.type==='metadata'||u.type==='interface';
-    if(proposedCleanup){
-      const alert=el('section','proposed-cleanup');
-      alert.appendChild(el('strong','',u.type==='metadata'?'Suggested removal: document metadata':'Suggested removal: interface control'));
-      alert.appendChild(el('p','sub',u.reason));root.appendChild(alert);
-    }
-    root.appendChild(heading('Original extracted source — read only'));root.appendChild(el('div','source',u.text));
-    root.appendChild(el('p','sub',proposedCleanup?
-      'The entire item is proposed for removal from your notes. Restore any word you want to retain. No removal happens until you approve.':
-      'Suggestions are editable drafts. Click a crossed-out word to restore it, or another word to remove it. You decide the final wording.'));
-    const controls=el('div','row buttons');
-    const suggestButton=button(u.proposal!==null?'Recalculate suggestion':'Suggest shortening','',()=>{
-      const proposed=proposedCleanup?C.words(u.text).map((_,i)=>i):C.computeSuggestion(u.text);
-      if(!proposed.length){status('No safe cuts identified by conservative patterns. Select words yourself; nothing has been changed.');return;}
-      transact(()=>{checkpoint(u);u.proposal=Array.from(new Set([...u.deleted,...proposed]));u.status='editing';});
-    });
-    controls.appendChild(suggestButton);
-    if(u.proposal!==null){
-      controls.appendChild(button('Reject suggestion · keep original','',()=>transact(()=>{
-        checkpoint(u);u.proposal=null;u.status=hasChanges(u)?'editing':'skipped';
-        status('Proposal rejected. Your previous manual edits, if any, were preserved.');
-      })));
-    }
-    root.appendChild(controls);
-    root.appendChild(heading(u.proposal!==null?'Edit proposed cuts — then approve':'Manual word editing'));
-    const insertionTools=el('div','row buttons');
-    const startInsert=button(selectingInsertion?'Cancel insertion':'Add my writing in [brackets]',selectingInsertion?'':'',()=>{
-      selectingInsertion=!selectingInsertion;insertingAt=null;render();
-    });
-    insertionTools.appendChild(startInsert);
-    if(selectingInsertion)insertionTools.appendChild(el('span','insert-instructions','Now click the word your addition should follow.'));
-    root.appendChild(insertionTools);
-    const wordBox=el('div','edited');const cut=new Set(u.proposal===null?u.deleted:u.proposal);
-    C.words(u.text).forEach((w,i)=>{
-      const wrapper=el('span','word-wrap');
-      const word=button(w,'word'+(cut.has(i)?' cut':''),()=>{
-        if(selectingInsertion){insertingAt=i;selectingInsertion=false;render();$('insertText')?.focus();return;}
-        transact(()=>{
-          checkpoint(u);const arr=u.proposal===null?[...u.deleted]:[...u.proposal];const set=new Set(arr);set.has(i)?set.delete(i):set.add(i);
-          const next=[...set].sort((a,b)=>a-b);if(u.proposal===null)u.deleted=next;else u.proposal=next;u.status='editing';
-        });
-      });
-      word.title=selectingInsertion?'Click to insert your own writing after this word':cut.has(i)?'Restore word':'Propose removing this word';
-      word.setAttribute('aria-pressed',cut.has(i)?'true':'false');wrapper.appendChild(word);
-      const inserts=u.insertions[String(i)]||[];
-      inserts.forEach((entry,j)=>{const b=button('['+entry+'] ×','added',()=>transact(()=>{checkpoint(u);u.insertions[String(i)].splice(j,1);u.status='editing';}));b.title='Remove your own insertion';wrapper.appendChild(b);});
-      wordBox.appendChild(wrapper);wordBox.appendChild(document.createTextNode(' '));
-    });root.appendChild(wordBox);
-    if(insertingAt!==null){
-      const panel=el('div','insert-panel');panel.appendChild(el('strong','',`Insert after “${C.words(u.text)[insertingAt]}”`));
-      const input=el('textarea');input.id='insertText';input.placeholder='Your own wording (brackets will be added automatically)';panel.appendChild(input);
-      const row=el('div','row');row.appendChild(button('Insert [my wording]','primary',()=>{
-        let v=input.value.trim();if(v.startsWith('[')&&v.endsWith(']'))v=v.slice(1,-1).trim();
-        if(!v||v.length>2000){status('Type 1–2,000 characters of your own writing.');return;}
-        transact(()=>{checkpoint(u);const key=String(insertingAt);(u.insertions[key]||(u.insertions[key]=[])).push(v);insertingAt=null;u.status='editing';});
-      }));row.appendChild(button('Cancel','',()=>{insertingAt=null;render();}));panel.appendChild(row);root.appendChild(panel);
-    }
-    const actualCuts=u.proposal===null?u.deleted:u.proposal;
-    const completeCut=actualCuts.length===C.words(u.text).length && actualCuts.length>0;
-    root.appendChild(heading(completeCut?'Preview — section proposed for complete removal':'Preview — deletions shown as […]'));
-    root.appendChild(el('div','preview',completeCut?'[Entire section will be omitted from reviewed notes if approved]':C.editedText(u,true,u.proposal===null?null:u.proposal)));
-    const meta=el('p','sub','The original source is retained in the saved project. Existing source brackets are not treated as your additions.');root.appendChild(meta);
-    const actions=el('div','row buttons');
-    const approve=button(completeCut?'Approve proposed removal':u.proposal!==null?'Approve edited suggestion':'Approve my edited version','primary',()=>transact(()=>{
-      checkpoint(u);if(u.proposal!==null){u.deleted=[...u.proposal];u.proposal=null;}u.status='accepted';insertingAt=null;selectingInsertion=false;
-    }));
-    approve.disabled=!hasChanges(u) && (u.proposal===null || u.proposal.length===0);
-    actions.appendChild(approve);
-    actions.appendChild(button('Skip · keep original','',()=>transact(()=>{checkpoint(u);u.proposal=null;u.deleted=[];u.insertions={};u.status='skipped';insertingAt=null;selectingInsertion=false;})));
-    actions.appendChild(button('Flag for review','',()=>transact(()=>{checkpoint(u);u.status='flagged';u.proposal=null;})));
-    actions.appendChild(button('Reset edits','danger',()=>{
-      if(!confirm('Clear all edits and added writing for this review unit?'))return;
-      transact(()=>{checkpoint(u);u.deleted=[];u.insertions={};u.proposal=null;u.status='unreviewed';insertingAt=null;selectingInsertion=false;});
-    }));root.appendChild(actions);root.appendChild(button('Undo last edit','',restoreUndo));
-  }
-  function restoreUndo(){const snap=undo.pop();if(!snap)return status('No further edits to undo.');const u=state.units.find(x=>x.id===snap.id);if(!u)return;u.deleted=snap.deleted;u.insertions=snap.insertions;u.proposal=snap.proposal;u.status=snap.status;const index=state.units.findIndex(x=>x.id===snap.id);if(index>=0)state.index=index;save();render();}
-  async function loadPdf(file){
-    if(!file)return;if(!window.pdfjsLib)return status('PDF.js did not load. Check your internet connection and reload.');
-    busy=true;$('pick').disabled=true;showPage=0;insertingAt=null;selectingInsertion=false;undo=[];
-    if(pdfBlob)URL.revokeObjectURL(pdfBlob);
-    pdfBlob=URL.createObjectURL(file);status('Reading PDF…');
-    try{
-      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const data=await file.arrayBuffer();pdf=await pdfjsLib.getDocument({data:new Uint8Array(data),disableAutoFetch:true}).promise;
-      const reports=[];
-      for(let i=1;i<=pdf.numPages;i++){
-        const page=await pdf.getPage(i);const text=await page.getTextContent();
-        const annotations=await page.getAnnotations();
-        const list=await page.getOperatorList();
-        const ops=pdfjsLib.OPS||{};const imageNames=[ops.paintImageXObject,ops.paintInlineImageXObject,ops.paintJpegXObject,ops.paintImageXObjectRepeat,ops.paintInlineImageXObjectGroup].filter(Number.isInteger);
-        const imageCount=list.fnArray.filter(op=>imageNames.includes(op)).length;
-        const graphicsCount=list.fnArray.filter(op=>op===ops.constructPath).length;
-        reports.push({page:i,items:text.items,imageCount,graphicsCount,links:annotations.filter(a=>a.subtype==='Link').length});
-        status(`Reading page ${i} of ${pdf.numPages}…`);
-        if(i%2===0)await new Promise(requestAnimationFrame);
-      }
-      const fresh=C.buildUnits(reports);
-      let recovered=0;
-      // Preserve existing decisions if exact source text and page agree; never merge on index alone.
-      if(state.name===file.name && state.pdfSize===file.size){
-        const previous=new Map(state.units.map(u=>[`${u.page}|${u.type}|${u.text}`,u]));
-        for(const unit of fresh){const old=previous.get(`${unit.page}|${unit.type}|${unit.text}`);if(old){unit.deleted=old.deleted;unit.insertions=old.insertions;unit.status=old.status;unit.proposal=old.proposal;recovered++;}}
-      }
-      state={name:file.name,pdfSize:file.size,pageCount:pdf.numPages,index:0,units:fresh};
-      save();render();status(`Read all ${pdf.numPages} pages. ${fresh.length} review units; ${recovered} previous decisions restored.`);
-    }catch(error){console.error(error);status('Could not read this PDF: '+error.message);}finally{busy=false;$('pick').disabled=false;}
-  }
-  function restoreProject(obj){
-    if(!obj||!Array.isArray(obj.units)||!Number.isInteger(obj.pageCount))throw Error('Not a Source Review project');
-    for(const u of obj.units){
-      if(!u||typeof u.text!=='string'||!Number.isInteger(u.page)||!Array.isArray(u.deleted)||!u.insertions||typeof u.insertions!=='object')throw Error('Malformed review unit');
-      u.deleted=u.deleted.filter(x=>Number.isInteger(x)&&x>=0&&x<C.words(u.text).length);
-      u.proposal=Array.isArray(u.proposal)?u.proposal.filter(x=>Number.isInteger(x)&&x>=0&&x<C.words(u.text).length):null;
-    }
-    return {units:obj.units,index:Math.max(0,Math.min(obj.units.length-1,Number(obj.index)||0)),name:String(obj.name||''),pdfSize:Number(obj.pdfSize)||0,pageCount:obj.pageCount};
-  }
-  function exportNotes(){
-    if(!state.units.length)return status('Open a PDF first.');
-    const completed=state.units.filter(u=>['accepted','skipped','flagged','reviewed','protected-reviewed'].includes(u.status));
-    if(!completed.length)return status('Review at least one item before exporting notes.');
-    const excluded=completed.filter(u=>u.status==='accepted' && u.deleted.length===C.words(u.text).length && u.deleted.length>0);
-    const sections=completed.filter(u=>!excluded.includes(u)).map(u=>{
-      const view=['text','metadata','interface'].includes(u.type)?(u.status==='skipped'?u.text:C.editedText(u,true)): '[PROTECTED CONTENT — consult original PDF] '+u.text;
-      return `PDF PAGE ${u.page} | ${u.type.toUpperCase()} | ${u.status.toUpperCase()}\nSOURCE: ${state.name}\nORIGINAL:\n${u.text}\n\nYOUR REVIEWED VERSION:\n${view}\n${u.reason?`NOTE: ${u.reason}\n`:''}`;
-    });
-    download('source-review-notes.txt',sections.join('\n\n-------------------------------------\n\n'),'text/plain;charset=utf-8');
-    status(`Exported ${sections.length} reviewed items; omitted ${excluded.length} sections you explicitly approved removing. Original wording remains in the project backup.`);
-  }
-  $('pick').addEventListener('change',async e=>{await loadPdf(e.target.files[0]);e.target.value='';});
-  $('previous').addEventListener('click',()=>{if(state.index>0)transact(()=>{state.index--;insertingAt=null;selectingInsertion=false;});});
-  $('next').addEventListener('click',()=>{if(state.index<state.units.length-1)transact(()=>{state.index++;insertingAt=null;selectingInsertion=false;});});
-  $('save').addEventListener('click',()=>{
-    if(!state.units.length)return status('Open a PDF first.');
-    download('five-sentence-review-project.json',JSON.stringify(state,null,2),'application/json;charset=utf-8');status('Project saved; PDF itself is not embedded.');
-  });
-  $('notes').addEventListener('click',exportNotes);
-  $('restore').addEventListener('change',async e=>{
-    const file=e.target.files[0];if(!file)return;
-    try{const fresh=restoreProject(JSON.parse(await file.text()));if(state.units.length&&!confirm('Replace current review project? Export your project first if needed.'))return;state=fresh;showPage=0;undo=[];if(pdfBlob){URL.revokeObjectURL(pdfBlob);pdfBlob=null;}pdf=null;$('viewer').replaceChildren(el('p','empty','Reopen the original PDF to reconnect the preview.'));save();render();status('Project restored. Open the same PDF to reconnect its viewer.');}
-    catch(err){status('Cannot import project: '+err.message);}finally{e.target.value='';}
-  });
-  try{const saved=localStorage.getItem(KEY);if(saved)state=restoreProject(JSON.parse(saved));}catch(_){/* no storage or malformed backup */}
-  render();
+/* Source Review v3 — isolated comparison version, no main-branch dependencies. */
+(()=>{'use strict';
+const C=window.ReviewCore,$=id=>document.getElementById(id),KEY='source-review-v3';
+let state={version:3,name:'',pdfSize:0,pageCount:0,index:0,units:[],legacyArchive:null,unmatchedPrior:[]};
+let pdfBlob=null,showPage=0,pdfDoc=null,lastReports=null,selectionAnchor=null,insertAfter=null,insertMode=false,undo=[];
+const resolved=new Set(['accepted','skipped','flagged','protected-reviewed']);
+const content=()=>state.units.filter(u=>u.type!=='context');
+const current=()=>content()[state.index];
+const el=(tag,cls='',text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
+const btn=(txt,fn,cls='')=>{const n=el('button',cls,txt);n.type='button';n.addEventListener('click',fn);return n;};
+const trimWords=(u,arr)=>Array.from(new Set((arr||[]).filter(x=>Number.isInteger(x)&&x>=0&&x<C.words(u.text).length))).sort((a,b)=>a-b);
+const allRemoved=u=>C.words(u.text).length>0 && u.deleted.length===C.words(u.text).length;
+const proposalRemoved=u=>C.words(u.text).length>0 && u.proposal?.length===C.words(u.text).length;
+const isCuttable=u=>['text','metadata','interface','guidance','planner','planner-table','table'].includes(u.type);
+const hasEdits=u=>u.deleted.length>0 || Object.values(u.insertions).some(a=>a?.length);
+function status(s){$('statusText').textContent=s;}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));const date=new Date();$('savedState').textContent='Saved in this browser '+date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});return true;}catch(e){$('savedState').textContent='Autosave failed — export backup';status('Local storage is unavailable/full. Export a backup now.');return false;}}
+function checkpoint(u){undo.push({id:u.id,deleted:[...u.deleted],insertions:JSON.parse(JSON.stringify(u.insertions)),proposal:u.proposal?[...u.proposal]:null,status:u.status});if(undo.length>100)undo.shift();}
+function act(fn){fn();save();render();}
+function download(name,text,mime){const url=URL.createObjectURL(new Blob([text],{type:mime}));const a=el('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+function openPdfPage(page){if(!pdfBlob||showPage===page)return;showPage=page;$('page').textContent='PDF page '+page;const f=el('iframe');f.title='Original '+state.name+', page '+page;f.src=pdfBlob+'#page='+page;$('viewer').replaceChildren(f);}
+function sourceInfo(u){const row=el('div','metaRow');row.append(el('span','state '+(resolved.has(u.status)?'done':''),u.status.replaceAll('-',' ')),el('span','sub','PDF page '+u.page+' · '+u.type));if(u.pageLinks)row.append(el('span','sub',u.pageLinks+' source links on this page'));return row;}
+function label(text){return el('p','eyebrow',text);}
+function elementSection(type,msg){const box=el('section',type);box.append(el('strong','',msg));return box;}
+function showProposal(u){const a=u.proposal===null?u.deleted:u.proposal,all=C.words(u.text).length;
+ const count=el('span','sub',a.length+' of '+all+' words currently marked for removal');return count;}
+function reviewDecision(u,newStatus){act(()=>{checkpoint(u);if(newStatus==='skipped'){u.deleted=[];u.insertions={};u.proposal=null;}if(newStatus==='accepted'&&u.proposal!==null){u.deleted=trimWords(u,u.proposal);u.proposal=null;}if(newStatus==='flagged')u.proposal=null;u.status=newStatus;selectionAnchor=null;insertAfter=null;insertMode=false;});}
+function editor(u,root){
+ const draft=u.proposal===null?u.deleted:u.proposal;
+ const cut=new Set(draft),w=C.words(u.text);
+ const tools=el('div','row editorTools');
+ tools.append(btn('Remove whole passage',()=>act(()=>{checkpoint(u);u.proposal=w.map((_,i)=>i);u.status='editing';}),'action-red'));
+ tools.append(btn('Restore all words',()=>act(()=>{checkpoint(u);u.proposal=[];u.deleted=[];u.status='editing';})));
+ tools.append(btn(insertMode?'Cancel bracket insertion':'Add my writing in [brackets]',()=>{insertMode=!insertMode;insertAfter=null;render();}));
+ root.append(tools);
+ root.append(el('p','sub instructions',insertMode?'Click a word after which your writing should appear.':'Click words to change proposed cuts. Shift-click another word to remove or restore a whole range.'));
+ const holder=el('div','edited');holder.setAttribute('aria-label','Word-by-word editing with shift-click ranges');
+ w.forEach((s,i)=>{
+   const word=btn(s,ev=>{
+     if(insertMode){insertAfter=i;insertMode=false;render();$('insertText')?.focus();return;}
+     act(()=>{checkpoint(u);const arr=u.proposal===null?[...u.deleted]:[...u.proposal];const set=new Set(arr);
+       if(ev?.shiftKey && selectionAnchor!==null){const low=Math.min(i,selectionAnchor),hi=Math.max(i,selectionAnchor);const deleteRange=!set.has(i);for(let n=low;n<=hi;n++)deleteRange?set.add(n):set.delete(n);}
+       else{set.has(i)?set.delete(i):set.add(i);}
+       const next=trimWords(u,[...set]);if(u.proposal===null)u.deleted=next;else u.proposal=next;
+       u.status='editing';selectionAnchor=i;});
+   },'word'+(cut.has(i)?' cut':''));
+   word.title='Click to toggle this word; Shift-click to toggle a range';word.setAttribute('aria-pressed',cut.has(i)?'true':'false');holder.append(word,document.createTextNode(' '));
+   (u.insertions[String(i)]||[]).forEach((entry,j)=>holder.append(btn('['+entry+'] ×',()=>act(()=>{checkpoint(u);u.insertions[String(i)].splice(j,1);u.status='editing';}),'added')));
+ });root.append(holder);
+ if(insertAfter!==null){const box=el('div','insert-panel');box.append(el('strong','','Insert your wording after “'+w[insertAfter]+'”'));const inp=el('textarea');inp.id='insertText';inp.placeholder='Your own wording';box.append(inp);
+ box.append(btn('Insert [bracketed writing]',()=>{let s=inp.value.trim();if(s.startsWith('[')&&s.endsWith(']'))s=s.slice(1,-1).trim();if(!s||s.length>2000){status('Enter between 1 and 2,000 characters.');return;}act(()=>{checkpoint(u);(u.insertions[String(insertAfter)]??=[]).push(s);u.status='editing';insertAfter=null;});},'primary'),btn('Cancel',()=>{insertAfter=null;render();}));root.append(box);}
+ const preview=el('div','previewbox');preview.append(label('Live preview — nothing is removed until approval'),el('div','preview',draft.length===w.length&&draft.length>0?'[Whole passage proposed for removal]':C.editedText(u,true,u.proposal)));
+ root.append(preview);
+}
+function render(){
+ const entries=content(),u=current(),done=entries.filter(x=>resolved.has(x.status)).length;
+ $('fileLabel').textContent=state.name?`${state.name} · ${state.pageCount} PDF pages`:'No PDF loaded';
+ $('progress').textContent=entries.length?`${done}/${entries.length} resolved`:'—';
+ $('counter').textContent=u?`${state.index+1} / ${entries.length}`:'—';
+ $('previous').disabled=!u||state.index===0;$('next').disabled=!u||state.index===entries.length-1;
+ $('nextPending').disabled=!entries.some((x,i)=>i>state.index&&!resolved.has(x.status));
+ if(u)openPdfPage(u.page);
+ const root=$('workspace');root.replaceChildren();
+ if(!u){root.append(el('p','empty',state.legacyArchive?'Your old decisions were imported. Open the original PDF to rebuild the text groups without losing your edits.':'Open a PDF to begin.'));return;}
+ root.append(sourceInfo(u));
+ if(state.unmatchedPrior?.length){const w=elementSection('warning',`${state.unmatchedPrior.length} earlier reviewed items could not be matched exactly after regrouping.`);w.append(el('p','sub','Your previous project is retained inside the backup. Please recheck regrouped tables; nothing was silently approved.'));root.append(w);}
+ if(u.heading)root.append(el('div','chapter','Section: '+u.heading));
+ const cleanup=['metadata','interface','guidance','planner','planner-table'].includes(u.type);
+ if(cleanup){const b=elementSection('proposed-cleanup','Suggested removal: '+(u.type==='planner-table'?'study timetable':u.type==='planner'?'study-planning instructions':u.type==='guidance'?'non-notes instructions':u.type==='metadata'?'print metadata':'interface controls'));b.append(el('p','sub',u.reason));root.append(b);}
+ if(u.type==='visual'||u.type==='unknown'){
+   const b=elementSection('warning',u.type==='visual'?'Image content needs visual review':'No readable text found');b.append(el('p','sub',u.reason));root.append(b);
+   const a=el('div','row compact-actions');a.append(btn('Checked against PDF',()=>reviewDecision(u,'protected-reviewed'),'primary'),btn('Flag to return to',()=>reviewDecision(u,'flagged')),btn('Leave unresolved',()=>reviewDecision(u,'protected')));root.append(a);return;
+ }
+ if(u.type==='table'){
+   const b=elementSection('warning','Possible table: original layout needs checking');b.append(el('p','sub','Do not trust the flattened cell order. You can choose to remove the entire section, but the app will not automatically delete an academic table.'));root.append(b);
+ }
+ const detail=el('details','original-detail');detail.open=!cleanup&&u.type!=='table';const summary=el('summary','',cleanup?'View original text (unchanged)':'Original extracted source');detail.append(summary,el('div','source',u.text));root.append(detail);
+ const draft=u.proposal===null?u.deleted:u.proposal,complete=draft.length===C.words(u.text).length&&draft.length>0;
+ const row=el('div','row compact-actions');
+ if(complete){row.append(btn('Approve removing this section',()=>reviewDecision(u,'accepted'),'primary'));}
+ else if(draft.length||hasEdits(u)){row.append(btn('Approve edited version',()=>reviewDecision(u,'accepted'),'primary'));}
+ row.append(btn('Keep original',()=>reviewDecision(u,'skipped')));
+ row.append(btn('Flag for review',()=>reviewDecision(u,'flagged')));
+ root.append(row);
+ if(u.type==='planner-table'){root.append(el('p','sub','This planner table was grouped as a complete section; no word-by-word table repair is required.'));}
+ const expand=el('details','advanced');expand.open=(u.type==='text' && !resolved.has(u.status))||u.status==='editing';
+ expand.append(el('summary','',cleanup?'Change proposed removal / restore words':u.type==='table'?'Optional manual edits to flattened table':'Edit suggested cuts / selected words'));
+ const pane=el('div','advancedPane');
+ const commands=el('div','row');commands.append(btn('Suggest shortening',()=>{const proposed=cleanup?C.words(u.text).map((_,i)=>i):C.computeSuggestion(u.text);if(!proposed.length){status('No safe deletion-only suggestion for this passage. You can select ranges or remove the whole passage.');return;}act(()=>{checkpoint(u);u.proposal=trimWords(u,[...u.deleted,...proposed]);u.status='editing';});}));
+ if(u.proposal!==null)commands.append(btn('Reject suggestion',()=>act(()=>{checkpoint(u);u.proposal=null;u.status=hasEdits(u)?'editing':'unreviewed';})));
+ commands.append(showProposal(u));pane.append(commands);editor(u,pane);
+ pane.append(btn('Undo last edit',undoLast),btn('Reset this item',()=>{if(!confirm('Clear this item’s edits? This cannot change the original source PDF.'))return;act(()=>{checkpoint(u);u.deleted=[];u.proposal=null;u.insertions={};u.status='unreviewed';});}));
+ expand.append(pane);root.append(expand);
+ if(!complete&&!draft.length&&!hasEdits(u))root.append(el('p','sub','No changes selected. Keep original, flag, or propose removing the passage.'));
+}
+function undoLast(){const s=undo.pop();if(!s){status('Nothing to undo in this session.');return;}const u=state.units.find(x=>x.id===s.id);if(!u)return;Object.assign(u,{deleted:s.deleted,insertions:s.insertions,status:s.status,proposal:s.proposal});const target=content().indexOf(u);if(target>=0)state.index=target;save();render();}
+function migrate(fresh,previous){
+ const from=(previous?.units||[]).filter(u=>resolved.has(u.status)||hasEdits(u)||u.status==='editing');
+ const map=new Map();for(const u of fresh){const k=u.page+'|'+C.compact(u.text).toLowerCase();if(!map.has(k))map.set(k,[]);map.get(k).push(u);}
+ const unmatched=[];let restored=0;
+ for(const old of from){const k=old.page+'|'+C.compact(old.text).toLowerCase();const matches=map.get(k)||[];
+   if(matches.length!==1 || C.words(old.text).length!==C.words(matches[0].text).length){unmatched.push({page:old.page,type:old.type,text:old.text,status:old.status});continue;}
+   const u=matches[0];u.deleted=trimWords(u,old.deleted);u.insertions=JSON.parse(JSON.stringify(old.insertions||{}));u.proposal=old.proposal===null?null:trimWords(u,old.proposal);u.status=old.status;restored++;
+ }
+ return{restored,unmatched};
+}
+async function loadPdf(file){
+ if(!file)return;if(!window.pdfjsLib){status('PDF.js failed to load; check internet connection.');return;}
+ $('pick').disabled=true;showPage=0;insertAfter=null;insertMode=false;undo=[];
+ if(pdfBlob)URL.revokeObjectURL(pdfBlob);pdfBlob=URL.createObjectURL(file);
+ status('Reading the actual PDF and checking layout…');
+ try{
+   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+   pdfDoc=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),disableAutoFetch:true}).promise;
+   const reports=[];for(let p=1;p<=pdfDoc.numPages;p++){
+     const page=await pdfDoc.getPage(p),t=await page.getTextContent(),annotations=await page.getAnnotations(),ops=await page.getOperatorList(),o=pdfjsLib.OPS||{};
+     const img=[o.paintImageXObject,o.paintInlineImageXObject,o.paintJpegXObject,o.paintImageXObjectRepeat,o.paintInlineImageXObjectGroup].filter(Number.isInteger);
+     reports.push({page:p,items:t.items,imageCount:ops.fnArray.filter(x=>img.includes(x)).length,links:annotations.filter(x=>x.subtype==='Link').length});
+     if(p%3===0){status(`Reading ${p}/${pdfDoc.numPages} pages…`);await new Promise(requestAnimationFrame);}
+   }
+   lastReports=reports;
+   const fresh=C.buildUnits(reports),prior=state.name===file.name&&state.pdfSize===file.size?state:null;
+   const archive=state.legacyArchive||((prior&&prior.version!==3)?prior:null);
+   const previous=prior?.units?.length?prior:(prior?.legacyArchive?.units?prior.legacyArchive:null);
+   const {restored,unmatched}=previous?migrate(fresh,previous):{restored:0,unmatched:[]};
+   const earlierWarnings=(previous?.version===3?previous.unmatchedPrior||[]:[]);
+   state={version:3,name:file.name,pdfSize:file.size,pageCount:pdfDoc.numPages,index:0,units:fresh,legacyArchive:archive,unmatchedPrior:[...earlierWarnings,...unmatched]};
+   save();render();status(`Opened ${pdfDoc.numPages} pages · ${content().length} review items · restored ${restored} decisions. ${unmatched.length} previous decisions need rechecking.`);
+ }catch(e){console.error(e);status('Could not open this PDF: '+e.message);}finally{$('pick').disabled=false;}
+}
+function importProject(obj){if(!obj||!Array.isArray(obj.units))throw Error('Not a Source Review project');
+ if(!obj.name||!Number.isInteger(obj.pageCount))throw Error('Missing source details');
+ return obj;
+}
+function notesSections(){const all=state.units;const selected=all.filter(u=>resolved.has(u.status));
+ const removed=selected.filter(u=>u.status==='accepted'&&allRemoved(u));
+ const sections=selected.filter(u=>!removed.includes(u)).map(u=>({page:u.page,heading:u.heading||'',type:u.type,status:u.status,
+   text:u.status==='skipped'?u.text:isCuttable(u)?C.editedText(u,true):'[Visual/table check needed — consult original PDF] '+u.text}));
+ return{sections,removed,all:selected.length};}
+function exportNotes(){if(!content().length)return status('Open PDF first.');const data=notesSections();if(!data.all)return status('Review something first.');
+ download('reviewed-university-notes.txt',data.sections.map(u=>`PDF PAGE ${u.page} | ${u.type} | ${u.status}\n${u.heading?u.heading+'\n':''}${u.text}`).join('\n\n------------------------\n\n'),'text/plain;charset=utf-8');status(`Exported ${data.sections.length} kept sections; ${data.removed.length} approved removals excluded from notes. All originals remain in project backup.`);}
+function previewAll(){const modal=$('notesDialog'),host=$('allNotes'),data=notesSections();host.replaceChildren();
+ $('notesCount').textContent=`${data.all} resolved items · ${data.sections.length} included · ${data.removed.length} approved removals · ${content().length-data.all} awaiting review. Only resolved items appear below.`;
+ if(!data.sections.length)host.append(el('p','sub','No reviewed notes yet. Approve a change or choose Keep original to include it here.'));
+ for(const entry of data.sections){const card=el('section','noteCard');card.append(el('span','sub',`PDF p.${entry.page} · ${entry.type} · ${entry.status}`));if(entry.heading)card.append(el('h3','',entry.heading));card.append(el('p','',entry.text));host.append(card);}
+ if(typeof modal.showModal==='function')modal.showModal();else modal.setAttribute('open','');}
+function nav(offset){const units=content();if(!units.length)return;state.index=Math.min(Math.max(0,state.index+offset),units.length-1);insertAfter=null;insertMode=false;selectionAnchor=null;save();render();$('workspace').scrollTop=0;}
+$('pick').addEventListener('change',async e=>{await loadPdf(e.target.files?.[0]);e.target.value='';});
+$('previous').addEventListener('click',()=>nav(-1));$('next').addEventListener('click',()=>nav(1));
+$('nextPending').addEventListener('click',()=>{const all=content(),idx=all.findIndex((u,i)=>i>state.index&&!resolved.has(u.status));if(idx>=0)nav(idx-state.index);});
+$('save').addEventListener('click',()=>{if(!state.units.length && !state.legacyArchive)return status('Open PDF or import a project first.');download('source-review-v3-project.json',JSON.stringify(state,null,2),'application/json;charset=utf-8');status('Full project backup exported, including original text and previous decisions.');});
+$('notes').addEventListener('click',exportNotes);$('previewAll').addEventListener('click',previewAll);$('closePreview').addEventListener('click',()=>$('notesDialog').close());$('closePreviewBottom').addEventListener('click',()=>$('notesDialog').close());$('exportFromPreview').addEventListener('click',exportNotes);
+$('restore').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;
+ try{const src=importProject(JSON.parse(await file.text()));if(state.units.length&&!confirm('Import previous review decisions? Export a backup first if necessary.'))return;
+   if(src.version===3){state=src;status('v3 project restored. Reopen PDF to reconnect original viewer.');}
+   else{state={version:3,name:src.name,pdfSize:src.pdfSize,pageCount:src.pageCount,index:0,units:[],legacyArchive:src,unmatchedPrior:[]};status('Earlier project imported with all original decisions. Open the same PDF to rebuild and safely transfer exact matches.');}
+   if(pdfBlob){URL.revokeObjectURL(pdfBlob);pdfBlob=null;}showPage=0;lastReports=null;save();render();
+ }catch(err){status('Import failed: '+err.message);}finally{e.target.value='';}});
+try{const saved=localStorage.getItem(KEY);if(saved){const src=JSON.parse(saved);if(src?.version===3&&Array.isArray(src.units))state=src;}}catch(_){/* fresh browser */}
+render();
 })();
